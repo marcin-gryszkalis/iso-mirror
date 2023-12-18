@@ -1,0 +1,113 @@
+Systems:
+
+  Freebsd: # GeoDNS mirrors
+    versions-url: https://download.freebsd.org/releases/ISO-IMAGES/
+    versions-rule: 'title="(\d+\.\d+)"'
+    download: https://download.freebsd.org/releases/ISO-IMAGES/{version}/FreeBSD-{version}-RELEASE-{architecture}-dvd1.iso.xz
+
+  FreBSD-Archive: # single mirror
+    versions-url: http://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/ISO-IMAGES/
+    versions-rule: 'title="(\d+\.\d+)"'
+    download: https://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/ISO-IMAGES/{version}/FreeBSD-{version}-RELEASE-{architecture}-dvd1.iso.xz
+    min-version: 10.0
+
+  Ubuntu:
+    versions-url: https://releases.ubuntu.com/
+    versions-rule: 'href="([\d\.]+)/"'
+    min-version: 20
+    download:
+      - https://releases.ubuntu.com/{version}/ubuntu-{version}-desktop-{architecture}.iso
+      - https://releases.ubuntu.com/{version}/ubuntu-{version}-server-{architecture}.iso
+
+  Kubuntu:
+    versions-url: https://cdimage.ubuntu.com/kubuntu/releases/
+    versions-rule: 'href="([\d\.]+)/"'
+    min-version: 20
+    download:
+      - https://cdimage.ubuntu.com/kubuntu/releases/{version}/release/kubuntu-{version}-desktop-{architecture}.iso
+
+  Lubuntu:
+    versions-url: https://cdimage.ubuntu.com/lubuntu/releases/
+    versions-rule: 'href="([\d\.]+)/"'
+    min-version: 20
+    download:
+      - https://cdimage.ubuntu.com/lubuntu/releases/{version}/release/lubuntu-{version}-desktop-{architecture}.iso
+
+  AlmaLinux:
+    versions-url: https://mirrors.almalinux.org/isos.html
+    versions-rule: 'href="/isos/[^/]+/([\d\.]+)\.html'
+    min-version: 8.0
+    mirrors-url: https://mirrors.almalinux.org/
+    mirrors-rule: 'href="(https://[^"]+)"\s+target="_blank"'
+    architecture-map:
+      - amd64 x86_64
+      - ppc64el ppc64le
+    download:
+      - https://{mirror}/pub/linux/almalinux/{version}/isos/{architecture}/AlmaLinux-{version}-{architecture}-dvd.iso
+
+  Clonezilla:
+    versions-url: https://clonezilla.org/downloads/download.php?branch=stable
+    versions-rule: '[>](\d+\.\d+\.\d+-\d+)'
+    download:
+      - https://downloads.sourceforge.net/project/clonezilla/clonezilla_live_stable/{version}/clonezilla-live-{version}-{architecture}.iso
+
+  Rescuezilla:
+    versions-url: https://github.com/rescuezilla/rescuezilla/releases
+    versions-rule: '/rescuezilla/rescuezilla/releases/tag/([\d\.]+)'
+    min-version: 2.3
+    download-url: https://github.com/rescuezilla/rescuezilla/releases
+    download-rule: 'https://github.com/rescuezilla/rescuezilla/releases/download/{version}/rescuezilla-{version}-64bit\.[^\.]+\.iso'
+
+  TrueNAS-Core:
+    versions-url: https://www.truenas.com/download-truenas-core/
+    versions-rule: 'x64/TrueNAS-([^"]\.iso"'
+    download-url: https://www.truenas.com/download-truenas-core/
+    download-rule: '"https:[^"]+TrueNAS-{version}\.iso"'
+
+  TrueNAS-Scale:
+    versions-url: https://www.truenas.com/download-truenas-scale/
+    versions-rule: 'x64/TrueNAS-([^"]\.iso"'
+    download-url: https://www.truenas.com/download-truenas-scale/
+    download-rule: '"https:[^"]+TrueNAS-{version}\.iso"'
+
+#  Windows-10:
+
+# https://github.com/pbatard/Fido/blob/master/Fido.ps1
+
+# step 1
+
+# https://www.microsoft.com/en-us/software-download/windows11
+# </option><!--<optgroup label="Windows 11">--><option value="2935">Windows 11 (multi-edition ISO for x64 devices)
+
+# step 2
+
+# https://www.microsoft.com/en-us/api/controls/contentinclude/html?pageId=a8f8f489-4c7f-463a-9ca6-5cff94d8d041&host=www.microsoft.com&segments=software-download%2cwindows11&query=&action=getskuinformationbyproductedition&sessionId=c80485bf-7aeb-4944-8ae3-4b4334da2a4c&productEditionId=2935&sdVersion=2
+
+# https://www.microsoft.com/en-us/api/controls/contentinclude/html?pageId=a8f8f489-4c7f-463a-9ca6-5cff94d8d041&host=www.microsoft.com&segments=software-download%2cwindows11&query=&action=getskuinformationbyproductedition&sessionId=0bd0a933-e6b9-4de1-b867-024d0d5c8c99&productEditionId=2935&sdVersion=2
+# https://www.microsoft.com/en-us/api/controls/contentinclude/html?pageId=6e2a1789-ef16-4f27-a296-74ef7ef5d96b&host=www.microsoft.com&segments=software-download%2cwindows11&query=&action=GetProductDownloadLinksBySku&sessionId=0bd0a933-e6b9-4de1-b867-024d0d5c8c99&skuId=17442&language=English&sdVersion=2
+
+#                                             <a class="button button-long button-flat button-purple" style="margin: 0 0 1.5em 0;" href="https://software.download.prss.microsoft.com/dbazure/Win11_23H2_English_x64v2.iso?t=72783b9a-d11f-4d47-9034-31ab94d0b39b&amp;e=1703001502&amp;h=f7af05a76a5e52cd430b65f2b4cf1af814c38162e93ebdcfd48">
+#                                             <a class="button button-long button-flat button-purple" style="margin: 0 0 1.5em 0;" href="https://software.download.prss.microsoft.com/dbazure/Win11_23H2_English_x64v2.iso?t=72783b9a-d11f-4d47-9034-31ab94d0b39b&amp;e=1703001502&amp;h=f7af05a76a5e52cd430b65f2b4cf1af814c38162e93ebdcfd48">
+
+#                                             <a class="button button-long button-flat button-purple" style="margin: 0 0 1.5em 0;" href="https://software.download.prss.microsoft.com/dbazure/Win11_23H2_English_x64v2.iso?t=72783b9a-d11f-4d47-9034-31ab94d0b39b&amp;e=1703001502&amp;h=f7af05a76a5e52cd430b65f2b4cf1af814c38162e93ebdcfd48">
+
+#                                             <a class="button button-long button-flat button-purple" style="margin: 0 0 1.5em 0;" href="https://software.download.prss.microsoft.com/dbazure/Win11_23H2_English_x64v2.iso?t=72783b9a-d11f-4d47-9034-31ab94d0b39b&amp;e=1703001502&amp;h=f7af05a76a5e52cd430b65f2b4cf1af814c38162e93ebdcfd48">
+
+
+#     https://software.download.prss.microsoft.com/dbazure/Win11_23H2_English_x64v2.iso?t=72783b9a-d11f-4d47-9034-31ab94d0b39b&e=1703001502&h=xxx
+
+
+# ----------------------------
+
+
+# https://cdimage.debian.org/debian-cd/current/amd64/iso-dvd/debian-12.4.0-amd64-DVD-1.iso
+# https://cdimage.debian.org/debian-cd/current/amd64/iso-dvd/
+# https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/iso-hybrid/
+# https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/iso-hybrid/debian-live-12.4.0-amd64-standard.iso
+# https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/iso-hybrid/debian-live-12.4.0-amd64-kde.iso
+
+# bit torrent:
+# https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/bt-hybrid/
+# https://cdimage.debian.org/debian-cd/current/amd64/bt-dvd/
+
+# https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/debian-testing-amd64-DVD-1.iso
