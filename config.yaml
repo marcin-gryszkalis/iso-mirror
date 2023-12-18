@@ -19,8 +19,12 @@ Options:
     - Kubuntu
     - Lubuntu
     - Alma
+    - Arch
     - Clonezilla
     - Rescuezilla
+    - Hirens-PE
+    - System-Rescue
+    - ShredOS
     - TrueNAS-Core
     - TrueNAS-Scale
     - Kali

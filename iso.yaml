@@ -48,6 +48,15 @@ Systems:
     download:
       - https://{mirror}/pub/linux/almalinux/{version}/isos/{architecture}/AlmaLinux-{version}-{architecture}-dvd.iso
 
+  Arch:
+    versions-url: https://geo.mirror.pkgbuild.com/iso/
+    versions-rule: 'href="(\d\d\d\d\.\d\d\.\d\d)/'
+    torrent: Yes
+    architecture-map:
+      - amd64 x86_64
+    download:
+      - https://geo.mirror.pkgbuild.com/iso/{version}/archlinux-{version}-{architecture}.iso
+
   Clonezilla:
     versions-url: https://clonezilla.org/downloads/download.php?branch=stable
     versions-rule: '[>](\d+\.\d+\.\d+-\d+)'
@@ -61,15 +70,35 @@ Systems:
     download-url: https://github.com/rescuezilla/rescuezilla/releases
     download-rule: 'https://github.com/rescuezilla/rescuezilla/releases/download/{version}/rescuezilla-{version}-64bit\.[^\.]+\.iso'
 
+  Hirens-PE:
+    # old version is at https://www.hirensbootcd.org/old-versions/
+    versions-url: https://www.hirensbootcd.org/download/
+    versions-rule: 'BootCD PE x64 \(v([\d\.]+)\)'
+    append-version: Yes
+    download:
+      - https://www.hirensbootcd.org/files/HBCD_PE_x64.iso
+
+  System-Rescue:
+    versions-url: https://www.system-rescue.org/Download/
+    versions-rule: 'SystemRescue\s+([\d\.]+)\s+for\s+amd64'
+    download:
+      - https://fastly-cdn.system-rescue.org/releases/{version}/systemrescue-{version}-amd64.iso
+
+  ShredOS: # note: ISOs are not generated for latest versions, only .img
+    versions-url: https://github.com/PartialVolume/shredos.x86_64/releases
+    versions-rule: PartialVolume/shredos.x86_64/releases/download/v([^/]+)/
+    download-url: https://github.com/PartialVolume/shredos.x86_64/releases
+    download-rule: https://github.com/PartialVolume/shredos.x86_64/releases/download/v{version}/shredos-{version}_.*?\.img
+
   TrueNAS-Core:
     versions-url: https://www.truenas.com/download-truenas-core/
-    versions-rule: 'x64/TrueNAS-([^"]\.iso"'
+    versions-rule: 'x64/TrueNAS-([^"]+)\.iso"'
     download-url: https://www.truenas.com/download-truenas-core/
     download-rule: '"https:[^"]+TrueNAS-{version}\.iso"'
 
   TrueNAS-Scale:
     versions-url: https://www.truenas.com/download-truenas-scale/
-    versions-rule: 'x64/TrueNAS-([^"]\.iso"'
+    versions-rule: 'x64/TrueNAS-([^"]+)\.iso"'
     download-url: https://www.truenas.com/download-truenas-scale/
     download-rule: '"https:[^"]+TrueNAS-{version}\.iso"'
 
@@ -82,6 +111,7 @@ Systems:
       - https://cdimage.kali.org/kali-{version}/kali-linux-{version}-live-{architecture}.iso
       - https://cdimage.kali.org/kali-{version}/kali-linux-{version}-installer-everything-{architecture}.iso
       - https://cdimage.kali.org/kali-{version}/kali-linux-{version}-installer-{architecture}.iso
+
 
 #  Windows-10:
 
