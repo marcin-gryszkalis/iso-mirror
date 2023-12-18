@@ -15,6 +15,7 @@ Systems:
     versions-url: https://releases.ubuntu.com/
     versions-rule: 'href="([\d\.]+)/"'
     min-version: 20
+    torrent: Yes
     download:
       - https://releases.ubuntu.com/{version}/ubuntu-{version}-desktop-{architecture}.iso
       - https://releases.ubuntu.com/{version}/ubuntu-{version}-server-{architecture}.iso
@@ -23,6 +24,7 @@ Systems:
     versions-url: https://cdimage.ubuntu.com/kubuntu/releases/
     versions-rule: 'href="([\d\.]+)/"'
     min-version: 20
+    torrent: Yes
     download:
       - https://cdimage.ubuntu.com/kubuntu/releases/{version}/release/kubuntu-{version}-desktop-{architecture}.iso
 
@@ -30,10 +32,11 @@ Systems:
     versions-url: https://cdimage.ubuntu.com/lubuntu/releases/
     versions-rule: 'href="([\d\.]+)/"'
     min-version: 20
+    torrent: Yes
     download:
       - https://cdimage.ubuntu.com/lubuntu/releases/{version}/release/lubuntu-{version}-desktop-{architecture}.iso
 
-  AlmaLinux:
+  Alma:
     versions-url: https://mirrors.almalinux.org/isos.html
     versions-rule: 'href="/isos/[^/]+/([\d\.]+)\.html'
     min-version: 8.0
@@ -69,6 +72,16 @@ Systems:
     versions-rule: 'x64/TrueNAS-([^"]\.iso"'
     download-url: https://www.truenas.com/download-truenas-scale/
     download-rule: '"https:[^"]+TrueNAS-{version}\.iso"'
+
+  Kali:
+    versions-url: https://www.kali.org/get-kali/
+    versions-rule: cdimage.kali.org/kali-([\d\.]+)
+    torrent: Yes
+    download:
+      - https://cdimage.kali.org/kali-{version}/kali-linux-{version}-live-everything-{architecture}.iso
+      - https://cdimage.kali.org/kali-{version}/kali-linux-{version}-live-{architecture}.iso
+      - https://cdimage.kali.org/kali-{version}/kali-linux-{version}-installer-everything-{architecture}.iso
+      - https://cdimage.kali.org/kali-{version}/kali-linux-{version}-installer-{architecture}.iso
 
 #  Windows-10:
 
@@ -108,6 +121,10 @@ Systems:
 
 # bit torrent:
 # https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/bt-hybrid/
+# https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/bt-hybrid/debian-live-12.4.0-amd64-standard.iso.torrent
+
 # https://cdimage.debian.org/debian-cd/current/amd64/bt-dvd/
+# https://cdimage.debian.org/debian-cd/current/amd64/bt-dvd/debian-12.4.0-amd64-DVD-1.iso.torrent
+
 
 # https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/debian-testing-amd64-DVD-1.iso
