@@ -1,12 +1,14 @@
-Configuration:
+Options:
 
-  # for FreeBSD: amd64 arm arm64 i386 powerpc riscv sparc64
-  # for Debian/Ubuntu Linux: amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x
-  # for Alma Linux: amd64 aarch64 ppc64el
+  # TODO: not implemented
+  delete-obsolete: No
 
-  Architecture:
-    - amd64
+# for FreeBSD: amd64 arm arm64 i386 powerpc riscv sparc64
+# for Debian/Ubuntu Linux: amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x
+# for Alma Linux: amd64 aarch64 ppc64el
+Architecture:
+  - amd64
 
-  System:
-    - FreeBSD
-    - Ubuntu
+System:
+  - FreeBSD
+  - Ubuntu
