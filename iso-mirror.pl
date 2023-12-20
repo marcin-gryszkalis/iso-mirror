@@ -9,6 +9,7 @@ use File::Slurp;
 use Data::Dumper;
 use FindBin qw($Bin);
 use JSON qw(decode_json);
+use YAML ();
 use Config::INI::Reader;
 use Version::Compare;
 
@@ -21,12 +22,20 @@ sub write_file_ok
     write_file($_[0], {binmode => ':utf8'}, $_[1]);
 }
 
-my $cfg = Config::INI::Reader->read_file("$Bin/rss.ini");
-my $rules = Config::INI::Reader->read_file("$Bin/rules.ini");
+my $iso = YAML::LoadFile("$Bin/iso.yaml");
+print Dumper $iso;
 
 
+use Term::Emit ":all", {-color => 1};
+Term::Emit::setopts(-fh => *LOG);
 
-use Term::Emit qw/:all/;
+emit "Skrawning all xyzons";
+print "\nHey, look at me, I'm printed output!\n";
+Term::Emit::setopts (-pos => 0);  # Tell where we left the cursor
+
+# emit_prog - progress
+emit_fail {-reason => $fail_reason}
+
 emit "System parameter updates";
   emit "CLOCK_UTC";
   #...do_something();
