@@ -17,58 +17,266 @@ use Config::INI::Reader;
 use Version::Compare;
 use Pod::Usage;
 use Getopt::Auto;
-our %options;
-
-
-# use List::Util qw/min max first sum sum0 product all any uniq head tail reduce pairs zip mesh/;
-# use List::MoreUtils qw/firstidx frequency mode slide minmax/;
+use Net::Curl::Easy qw(:constants);
+use Net::Curl::Form qw(:constants);
+use Term::ProgressBar;
+use Term::Emit ":all", {-color => 1, -timestamp => \&emit_ts };
+use List::Util qw/min max first sum sum0 product all any uniq head tail reduce pairs zip mesh/;
+use List::MoreUtils qw/firstidx frequency mode slide minmax/;
 # use POSIX qw/ceil floor/;
 
-sub write_file_ok
-{
-    write_file($_[0], {binmode => ':utf8'}, $_[1]);
-}
-
-my $iso = YAML::LoadFile("$Bin/iso.yaml");
-my $cfg = YAML::LoadFile("$Bin/cfg.yaml");
-print Dumper $iso;
-
-
-use Term::Emit ":all", {-color => 1};
-# Term::Emit::setopts(-fh => *LOG);
-
-emit "Skrawning all xyzons";
-print "\nHey, look at me, I'm printed output!\n";
-Term::Emit::setopts (-pos => 0);  # Tell where we left the cursor
-
-# emit_prog - progress
-emit_fail {-reason => "dead body"};
-
-emit "System parameter updates";
-  emit "CLOCK_UTC";
-  #...do_something();
-  emit_ok;
-
-  emit "NTP Servers";
-  #...do_something();
-  emit_error;
-
-  emit "DNS Servers";
-  #...do_something();
-  emit_warn;
-
-  # curl -o "$file" -z "$file" "$uri"
+our %options;
 
 sub usage {
     pod2usage( -verbose => 2 );
     exit 0;
 }
 
+sub write_file_ok
+{
+    write_file($_[0], {binmode => ':utf8'}, $_[1]);
+}
+
+sub emit_ts { return POSIX::strftime("%F %T ", localtime) }
+
+
+my $curl = Net::Curl::Easy->new();
+$curl->setopt(CURLOPT_FOLLOWLOCATION, 1);
+$curl->setopt(CURLOPT_AUTOREFERER, 1);
+$curl->setopt(CURLOPT_MAXREDIRS, 64);
+
+$curl->setopt(CURLOPT_FORBID_REUSE, 0);
+
+$curl->setopt( CURLOPT_COOKIEFILE, "");
+# $curl->setopt(CURLOPT_SSL_VERIFYPEER, 0);
+# $curl->setopt(CURLOPT_SSL_VERIFYHOST, 0);
+$curl->setopt(CURLOPT_FAILONERROR, 1);
+
+$curl->setopt(CURLOPT_HTTPGET, 1); #
+# $curl->setopt(CURLOPT_POST, 0);
+# $curl->setopt(CURLOPT_NOBODY, 0); # HEAD
+
+    # if (defined $cfg{proxy})
+    # {
+    #     $curl->setopt(CURLOPT_PROXY, $cfg{proxy});
+    #     if ($cfg{proxy} =~ m{^socks})
+    #     {
+    #         $curl->setopt(CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5);
+    #     }
+    #     elsif ($cfg{proxy} =~ m{^https})
+    #     {
+    #         $curl->setopt(CURLOPT_PROXYTYPE, CURLPROXY_HTTPS);
+    #     }
+    #     else
+    #     {
+    #         $curl->setopt(CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+    #         # $curl->setopt(CURLOPT_PROXYTYPE, CURLPROXY_HTTP_1_0);
+    #     }
+    #     # curl->setopt(curl, CURLOPT_HTTPPROXYTUNNEL, 1);
+    # }
+
+    # if (defined $cfg{sourceip})
+    # {
+    #     $curl->setopt(CURLOPT_INTERFACE, $cfg{sourceip});
+    # }
+
+sub xget($url)
+{
+    my $contents;
+    $curl->setopt(CURLOPT_URL, $url);
+    $curl->setopt(CURLOPT_WRITEDATA, \$contents);
+    $curl->perform();
+#    my $ref = $curl->getinfo(CURLINFO_EFFECTIVE_URL);
+    return $contents;
+}
+
+sub xdownload($url, $dest)
+{
+    $curl->setopt(CURLOPT_URL, $url);
+    my $f = undef;
+    open($f, ">", $dest) or die("$dest -- $!");
+    $curl->setopt(CURLOPT_WRITEDATA, \$f);
+    $curl->perform();
+}
+
+sub isyes($s)
+{
+    return $s =~ /yes/i;
+}
+
+emit "Loading iso.yaml";
+my $iso = YAML::LoadFile("$Bin/iso.yaml");
+emit_ok;
+
+emit "Loading config.yaml";
+my $cfg = YAML::LoadFile("$Bin/config.yaml");
+emit_ok;
+$cfg = $cfg->{Options};
+
+for my $system (@{$cfg->{"system"}})
+{
+    emit "Checking: $system";
+    unless (exists $iso->{Systems}->{$system})
+    {
+        emit_error({-reason => "cannot find $system in iso.yaml configuration"});
+        next;
+    }
+
+    my $s = $iso->{Systems}->{$system};
+    my $h = xget($s->{"versions-url"});
+
+    my @vers = ($h =~ /$s->{"versions-rule"}/g);
+    if (scalar @vers == 0)
+    {
+        emit_error({-reason => "Cannot find any valid version"});
+        next;
+    }
+
+    my @uv = ();
+    for my $v (uniq @vers)
+    {
+        emit "Checking $system version: $v";
+        if(exists $s->{"min-version"} && &Version::Compare::version_compare($v,$s->{"min-version"}) == -1)
+        {
+            emit_warn({-reason => "Too old version"});
+            next;
+        }
+        push(@uv, $v);
+        emit_ok;
+    }
+
+    for my $v (@uv)
+    {
+        for my $arc (@{$cfg->{architecture}})
+        {
+            if (exists $s->{"architecture-map"})
+            {
+                for my $am ($s->{"architecture-map"})
+                {
+                    my ($a,$b) = split/\s+/, $am;
+                    $arc = $b if $arc eq $a;
+                }
+            }
+
+            emit "Verify $system version: $v architecture: $arc";
+            my @urls = ();
+            if (exists $s->{"download-url"})
+            {
+                my $h = xget($s->{"download-url"});
+                my @du = ($h =~ /$s->{"download-rule"}/g);
+                push(@urls, uniq @du);
+            }
+
+            if (exists $s->{"download"})
+            {
+                if (ref $s->{"download"} eq 'ARRAY')
+                {
+                    push(@urls, @{$s->{"download"}});
+                }
+                else
+                {
+                    push(@urls, $s->{"download"});
+                }
+            }
+
+            @urls = uniq sort @urls;
+            for my $u (@urls)
+            {
+                $u =~ s/{version}/$v/g;
+                $u =~ s/{architecture}/$arc/g;
+            }
+
+            for my $u (@urls)
+            {
+                my $fn = $u;
+                $fn =~ s{.*/}{};
+
+                mkdir $cfg->{"destination-dir"} unless -d $cfg->{"destination-dir"};
+                my $ddir = $cfg->{"destination-dir"}.(isyes($cfg->{"dir-per-system"}) ? "/$system/" : "/");
+                $ddir =~ s{/+}{/}g;
+                mkdir $ddir unless -f $ddir;
+                my $dest = "$ddir/$fn";
+                $dest =~ s{/+}{/}g;
+
+                emit "Download $u -> $dest";
+                if (-f $dest)
+                {
+                    emit_warn({-reason => "already downloaded"});
+                    next;
+                }
+
+                xdownload($u, $dest);
+                emit_ok;
+            }
+
+            emit_ok;
+        }
+    }
+
+    emit_ok;
+
+    exit
+}
+
+exit;
+
+# print Dumper $iso;
+
+
+# emit_prog - progress
+# emit_fail {-reason => "dead body"};
+# emit "System parameter updates";
+# emit_error;
+# emit_warn;
+
+  # curl -o "$file" -z "$file" "$uri"
+
 
 my $count;
 sub add { $count += shift @ARGV; }
 $count += $options{'--inc'};
 print "Count: $count\n";
+
+# eval {
+#   $result = (Term::ReadKey::GetTerminalSize($fh))[0];
+#   $result-- if ($^O eq "MSWin32" or $^O eq "cygwin");
+# }; if ( $@ ) {
+#   warn "error from Term::ReadKey::GetTerminalSize(): $@";
+# }
+
+
+my $progress = Term::ProgressBar->new({ count => 200,
+                                        name  => 'thingy',
+                                        ETA   => 'linear',
+                                        term_width => 80,
+                                        });
+
+my $i = 0;
+while ($i < 200)
+{
+    $i += rand(100);
+    $progress->update($i); sleep(1);
+}
+
+
+print xget("https://net.fork.pl");
+#                $curl->setopt(CURLOPT_WRITEFUNCTION, \&writedata_callback);
+
+
+
+# CURLOPT_PROGRESSFUNCTION ( CURLOPT_PROGRESSDATA )
+# Progress callback receives 6 arguments: easy object, dltotal, dlnow, ultotal, ulnow and CURLOPT_PROGRESSDATA value. It should return 0.
+# CURLOPT_XFERINFOFUNCTION ( CURLOPT_XFERINFODATA ) 7.32.0+
+# Works exactly like CURLOPT_PROGRESSFUNCTION callback, except that dltotal, dlnow, ultotal and ulnow are now integer values instead of double.
+
+# sub cb_progress {
+#     my ( $easy, $dltotal, $dlnow, $ultotal, $ulnow, $uservar ) = @_;
+#     # ... display progress ...
+#     return 0;
+# }
+#$easy->setopt( CURLOPT_somethingFUNCTION, \&callback_function );
+
+#####################################################################################################
 
 =pod
 
@@ -84,12 +292,18 @@ iso-mirror B<--help>
 
 =head1 DESCRIPTION
 
-B<iso-mirror> is a wrapper
+B<iso-mirror> is
 
 
-=head2 -c --config=file    specify location of `config.yaml` file
+=head1 OPTIONS
 
-=head2 -n --dry-run        check pages and show what would be downloaded, also show what would be deleted when `delete-obsolete` configuration option is enabled
+=over 1
+
+=item B<-c --config>=I<file>    specify location of `config.yaml` file
+
+=item B<-n --dry-run>        check pages and show what would be downloaded, also show what would be deleted when `delete-obsolete` configuration option is enabled
+
+=back
 
 The integer argument is not checked.
 
@@ -108,4 +322,4 @@ Marcin Gryszalis <mg@fork.pl>
 
 =cut
 
-# pod2man -c "iso-mirror manual" iso-mirror > iso-mirror.1
+# pod2man -c "iso-mirror manual" -r 0.1 iso-mirror > iso-mirror.1

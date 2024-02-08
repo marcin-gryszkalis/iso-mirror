@@ -7,23 +7,29 @@ Options:
   re-download: No
 
   # folder where downloaded files are saved
-  destination-dir: /mnt/iso
+  # destination-dir: /mnt/iso
+  destination-dir: /cymeon/upload/iso
 
   # create subdirectory in `destination-dir` for every system entry and save its files there
   # see `system` section below
   dir-per-system: Yes
 
   tools:
-    # main download tool
-    download: curl -o {destination} --progress-bar {url}
+    http-get: curl -o - --silent {url}
     # alternative:
-    # download: curl -o {destination} -z {if-modified-since} {url}
+    # wget -O - {url}
+    # fetch -o - {url}
+    # GET {url}
+
+    # main download tool
+    http-download: curl -o {destination} --time-cond {destination} --continue-at - --progress-bar {url}
+    # alternative:
     # download: wget -O {destination} -nc {url}
-    # download: fetch -m -i {if-modified-since} -o {destination} {url}
+    # download: fetch --mirror --if-modified-since={destination} -o {destination} --verbose {url}
 
     # torrents download tool
     # note: it should quit after downloading
-    torrent: aria2c --listen-port 6881 --dht-entry-point router.bittorrent.com:6881 --dht-listen-port 6882 {torrent}
+    torrent-download: aria2c --listen-port 6881 --dht-entry-point router.bittorrent.com:6881 --dht-listen-port 6882 --dir={destination_dir} {torrent}
     # aria2c --listen-port 6881 --dht-entry-point router.bittorrent.com:6881  --dht-listen-port 6882 kubuntu-23.10-desktop-amd64.iso.torrent
 
     #        -d, --dir=<DIR>               The directory to store the downloaded file.

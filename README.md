@@ -16,3 +16,11 @@ By default `curl` is used to perform downloads, but config.yaml
 -n --dry-run        check pages and show what would be downloaded, also show what would be deleted when `delete-obsolete` configuration option is enabled
 
 ```
+
+## Installation
+
+### perl modules
+```
+cpanm --installdeps .
+--man-pages
+```
