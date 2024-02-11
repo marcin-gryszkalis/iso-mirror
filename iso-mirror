@@ -148,9 +148,9 @@ sub curl_progress
 sub xdownload($url, $dest, $label)
 {
     $curl->setopt(CURLOPT_URL, $url);
-    my $f = undef;
-    open($f, ">", $dest) or ERR "Cannot save to $dest -- $!";
-    $curl->setopt(CURLOPT_WRITEDATA, \$f);
+    open(my $f, ">", $dest) or ERR "Cannot save to $dest -- $!";
+    binmode($f);
+    $curl->setopt(CURLOPT_WRITEDATA, $f);
 
     $curl->setopt(CURLOPT_NOPROGRESS, 0);
     $curl->setopt(CURLOPT_XFERINFOFUNCTION, \&curl_progress);
@@ -162,6 +162,7 @@ sub xdownload($url, $dest, $label)
         $curl->perform();
     };
 
+    LOGraw ""; # break line after progress bar
 
     if (ref $@ eq "Net::Curl::Easy::Code")
     {
@@ -171,11 +172,9 @@ sub xdownload($url, $dest, $label)
     } 
     else
     {
-        ERR $@ if defined $@;
+        ERR $@ if $@;
     }   
 
-    LOGraw ""; # break line after progress bar
-    
 }
 
 sub isyes($s)
@@ -306,21 +305,12 @@ for my $system (@{$cfg->{"system"}})
         }
     }
 
-    exit
 }
 
-exit;
-
-# print Dumper $iso;
-
-
-  # curl -o "$file" -z "$file" "$uri"
-
-
-my $count;
-sub add { $count += shift @ARGV; }
-$count += $options{'--inc'};
-print "Count: $count\n";
+# my $count;
+# sub add { $count += shift @ARGV; }
+# $count += $options{'--inc'};
+# print "Count: $count\n";
 
 # eval {
 #   $result = (Term::ReadKey::GetTerminalSize($fh))[0];
