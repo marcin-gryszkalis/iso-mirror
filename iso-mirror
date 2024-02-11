@@ -16,7 +16,7 @@ use YAML ();
 use Config::INI::Reader;
 use Version::Compare;
 use Pod::Usage;
-use Getopt::Auto;
+use Getopt::Long;
 use Net::Curl::Easy qw(:constants);
 use Net::Curl::Form qw(:constants);
 use Term::ProgressBar;
@@ -31,6 +31,16 @@ sub usage {
     pod2usage( -verbose => 2 );
     exit 0;
 }
+
+my $opt_dryrun = 0;
+my $opt_config = undef;
+my $opt_system = undef;
+my $opt_curldebug = 0;
+GetOptions ("dryrun|n" => \$opt_dryrun,
+            "config|c=s"   => \$opt_config,
+            "system|s=s"  => \$opt_system,
+            "curldebug|d" => \$opt_curldebug)
+or usage();
 
 sub write_file_ok
 {
@@ -63,6 +73,8 @@ sub WARN
     LOG "WARNING: ".shift;
 }
 
+sub curl_init()
+{
 
 my $curl = Net::Curl::Easy->new();
 $curl->setopt(CURLOPT_FOLLOWLOCATION, 1);
@@ -71,7 +83,7 @@ $curl->setopt(CURLOPT_MAXREDIRS, 64);
 
 $curl->setopt(CURLOPT_FORBID_REUSE, 0);
 
-$curl->setopt( CURLOPT_COOKIEFILE, "");
+$curl->setopt( CURLOPT_COOKIEFILE, undef);
 # $curl->setopt(CURLOPT_SSL_VERIFYPEER, 0);
 # $curl->setopt(CURLOPT_SSL_VERIFYHOST, 0);
 $curl->setopt(CURLOPT_FAILONERROR, 1);
@@ -104,8 +116,15 @@ $curl->setopt(CURLOPT_HTTPGET, 1); #
     #     $curl->setopt(CURLOPT_INTERFACE, $cfg{sourceip});
     # }
 
+# debug:
+$curl->setopt(CURLOPT_VERBOSE, 1) if $opt_curldebug;
+
+return $curl;
+}
+
 sub xget($url)
 {
+    my $curl = curl_init();
     my $contents;
     $curl->setopt(CURLOPT_URL, $url);
     $curl->setopt(CURLOPT_WRITEDATA, \$contents);
@@ -121,6 +140,7 @@ sub xget($url)
 
 sub xlen($url)
 {
+    my $curl = curl_init();
     $curl->setopt(CURLOPT_URL, $url);
     $curl->setopt(CURLOPT_NOBODY, 1); # HEAD
     eval
@@ -135,9 +155,14 @@ sub xlen($url)
 }
 
 my $progressbar = undef;
+my $progressbarlabel = '';
 sub curl_progress 
 {
     my ($easy, $dltotal, $dlnow, $ultotal, $ulnow, $uservar) = @_;
+
+    return 0 if $dlnow == 0;
+
+    $progressbar = Term::ProgressBar->new({count => 100, name => $progressbarlabel, ETA => 'linear', term_width => 80 }) unless defined $progressbar;
 
     my $percent = $dltotal > 0 ? int($dlnow * 100 / $dltotal) : 0;
     $progressbar->update($percent); 
@@ -147,6 +172,7 @@ sub curl_progress
 
 sub xdownload($url, $dest, $label)
 {
+    my $curl = curl_init();
     $curl->setopt(CURLOPT_URL, $url);
     open(my $f, ">", $dest) or ERR "Cannot save to $dest -- $!";
     binmode($f);
@@ -154,19 +180,19 @@ sub xdownload($url, $dest, $label)
 
     $curl->setopt(CURLOPT_NOPROGRESS, 0);
     $curl->setopt(CURLOPT_XFERINFOFUNCTION, \&curl_progress);
-
-    $progressbar = Term::ProgressBar->new({ count => 100, name => $label, ETA => 'linear', term_width => 80 });
+    $progressbarlabel = $label;
 
     eval
     {
         $curl->perform();
     };
 
-    LOGraw ""; # break line after progress bar
+    LOGraw "" if defined $progressbar; # break line after progress bar
 
     if (ref $@ eq "Net::Curl::Easy::Code")
     {
-        WARN "Problem downloading $url: $@";
+        my $rc = $curl->getinfo(CURLINFO_RESPONSE_CODE);
+        WARN "Problem downloading $url: $@ (response code: $rc)";
         close $f;
         unlink $dest;
     } 
@@ -175,10 +201,13 @@ sub xdownload($url, $dest, $label)
         ERR $@ if $@;
     }   
 
+    $curl->setopt(CURLOPT_NOPROGRESS, 1);
+    $progressbar = undef;
 }
 
 sub isyes($s)
 {
+    return 0 unless defined $s;
     return $s =~ /yes/i;
 }
 
@@ -193,6 +222,8 @@ my %todownload; # url -> dest file
 
 for my $system (@{$cfg->{"system"}})
 {
+    next if defined $opt_system && $system ne $opt_system;
+
     LOG "System: $system";
     unless (exists $iso->{Systems}->{$system})
     {
@@ -226,11 +257,12 @@ for my $system (@{$cfg->{"system"}})
 
     for my $v (@uv)
     {
-        for my $arc (@{$cfg->{architecture}})
+        for my $architecture (@{$cfg->{architecture}})
         {
+            my $arc = $architecture;
             if (exists $s->{"architecture-map"})
             {
-                for my $am ($s->{"architecture-map"})
+                for my $am (@{$s->{"architecture-map"}})
                 {
                     my ($a,$b) = split/\s+/, $am;
                     $arc = $b if $arc eq $a;
@@ -239,12 +271,21 @@ for my $system (@{$cfg->{"system"}})
 
             LOG "Verify $system version: $v architecture: $arc";
             my @urls = ();
+
             if (exists $s->{"download-url"})
-            {
-                my $h = xget($s->{"download-url"});
-                my @du = ($h =~ /$s->{"download-rule"}/g);
+            {   
+                my $durl = $s->{"download-url"};
+                $durl =~ s/{version}/$v/g;
+                $durl =~ s/{architecture}/$arc/g;
+
+                my $drule = $s->{"download-rule"};
+                $drule =~ s/{version}/$v/g;
+                $drule =~ s/{architecture}/$arc/g;
+                    
+                my $h = xget($durl);
+                my @du = ($h =~ /$drule/g);
                 push(@urls, uniq @du);
-            }
+            }   
 
             if (exists $s->{"download"})
             {
@@ -279,10 +320,18 @@ for my $system (@{$cfg->{"system"}})
                 my $dest = "$ddir/$fn";
                 $dest =~ s{/+}{/}g;
 
+                if (isyes($s->{"append-version"}))
+                {
+                    my $pd = $dest;
+                    $dest =~ s/\.([a-z0-9]+)$/-$v.$1/i;
+                    LOG "Append version: $pd -> $dest";
+                }
+
                 my $rl = xlen($u);
                 if ($rl > 0)
                 {
                     $rlengths{$u} = $rl;
+                    LOG sprintf("Remote length: %s (%s)", format_bytes($rl), $rl);
                 }
 
                 if (-f $dest)
@@ -341,9 +390,10 @@ B<iso-mirror> is
 
 =over 1
 
-=item B<-c --config>=I<file>    specify location of `config.yaml` file
-
-=item B<-n --dry-run>        check pages and show what would be downloaded, also show what would be deleted when `delete-obsolete` configuration option is enabled
+=item B<-c --config>=I<file>   - specify location of `config.yaml` file
+=item B<-s --system>=I<name>   - operate only on given system (e.g. ubuntu)
+=item B<-n --dryrun>        - check pages and show what would be downloaded, also show what would be deleted when `delete-obsolete` configuration option is enabled
+=item B<-d --curldebug>        - enable libcurl debug output
 
 =back
 
