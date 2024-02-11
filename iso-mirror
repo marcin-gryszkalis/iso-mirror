@@ -20,7 +20,7 @@ use Getopt::Auto;
 use Net::Curl::Easy qw(:constants);
 use Net::Curl::Form qw(:constants);
 use Term::ProgressBar;
-use Term::Emit ":all", {-color => 1, -timestamp => \&emit_ts };
+use Number::Bytes::Human qw(format_bytes);
 use List::Util qw/min max first sum sum0 product all any uniq head tail reduce pairs zip mesh/;
 use List::MoreUtils qw/firstidx frequency mode slide minmax/;
 # use POSIX qw/ceil floor/;
@@ -37,7 +37,31 @@ sub write_file_ok
     write_file($_[0], {binmode => ':utf8'}, $_[1]);
 }
 
-sub emit_ts { return POSIX::strftime("%F %T ", localtime) }
+my $logfh = *STDOUT;
+sub LOG
+{
+    my $d = POSIX::strftime("%F %T", localtime);
+    my $m = join(" ",@_);
+    $m =~ s/[\r\n]/ /g;
+    print($logfh "$d $m\n");
+}
+
+sub LOGraw
+{
+    my $m = join(" ",@_);
+    print($logfh "$m\n");
+}
+
+sub ERR
+{
+    LOG "ERROR: ".shift;
+    exit 1;
+}
+
+sub WARN
+{
+    LOG "WARNING: ".shift;
+}
 
 
 my $curl = Net::Curl::Easy->new();
@@ -85,18 +109,73 @@ sub xget($url)
     my $contents;
     $curl->setopt(CURLOPT_URL, $url);
     $curl->setopt(CURLOPT_WRITEDATA, \$contents);
-    $curl->perform();
-#    my $ref = $curl->getinfo(CURLINFO_EFFECTIVE_URL);
+
+    eval 
+    {
+        $curl->perform();
+    };
+
+    return "" if ref $@ eq "Net::Curl::Easy::Code"; 
     return $contents;
 }
 
-sub xdownload($url, $dest)
+sub xlen($url)
+{
+    $curl->setopt(CURLOPT_URL, $url);
+    $curl->setopt(CURLOPT_NOBODY, 1); # HEAD
+    eval
+    {
+        $curl->perform();
+    };
+
+    $curl->setopt(CURLOPT_NOBODY, 0);
+    return 0 if ref $@ eq "Net::Curl::Easy::Code"; 
+    my $len = $curl->getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+    return $len;
+}
+
+my $progressbar = undef;
+sub curl_progress 
+{
+    my ($easy, $dltotal, $dlnow, $ultotal, $ulnow, $uservar) = @_;
+
+    my $percent = $dltotal > 0 ? int($dlnow * 100 / $dltotal) : 0;
+    $progressbar->update($percent); 
+
+    return 0;
+}
+
+sub xdownload($url, $dest, $label)
 {
     $curl->setopt(CURLOPT_URL, $url);
     my $f = undef;
-    open($f, ">", $dest) or die("$dest -- $!");
+    open($f, ">", $dest) or ERR "Cannot save to $dest -- $!";
     $curl->setopt(CURLOPT_WRITEDATA, \$f);
-    $curl->perform();
+
+    $curl->setopt(CURLOPT_NOPROGRESS, 0);
+    $curl->setopt(CURLOPT_XFERINFOFUNCTION, \&curl_progress);
+
+    $progressbar = Term::ProgressBar->new({ count => 100, name => $label, ETA => 'linear', term_width => 80 });
+
+    eval
+    {
+        $curl->perform();
+    };
+
+
+    if (ref $@ eq "Net::Curl::Easy::Code")
+    {
+        WARN "Problem downloading $url: $@";
+        close $f;
+        unlink $dest;
+    } 
+    else
+    {
+        ERR $@ if defined $@;
+    }   
+
+    LOGraw ""; # break line after progress bar
+    
 }
 
 sub isyes($s)
@@ -104,45 +183,46 @@ sub isyes($s)
     return $s =~ /yes/i;
 }
 
-emit "Loading iso.yaml";
+LOG "iso-mirror $VERSION";
+LOG "Loading configs";
 my $iso = YAML::LoadFile("$Bin/iso.yaml");
-emit_ok;
-
-emit "Loading config.yaml";
 my $cfg = YAML::LoadFile("$Bin/config.yaml");
-emit_ok;
 $cfg = $cfg->{Options};
+
+my %rlengths; # url -> content-length
+my %todownload; # url -> dest file
 
 for my $system (@{$cfg->{"system"}})
 {
-    emit "Checking: $system";
+    LOG "System: $system";
     unless (exists $iso->{Systems}->{$system})
     {
-        emit_error({-reason => "cannot find $system in iso.yaml configuration"});
-        next;
+        ERR "cannot find $system in iso.yaml configuration";
     }
 
     my $s = $iso->{Systems}->{$system};
     my $h = xget($s->{"versions-url"});
+    if ($h eq '')
+    {
+        WARN "cannot get $s->{'versions-url'}";
+        next;
+    }
 
     my @vers = ($h =~ /$s->{"versions-rule"}/g);
     if (scalar @vers == 0)
     {
-        emit_error({-reason => "Cannot find any valid version"});
-        next;
+        WARN "Cannot find any valid version";
     }
 
     my @uv = ();
     for my $v (uniq @vers)
     {
-        emit "Checking $system version: $v";
+        LOG "Checking $system version: $v";
         if(exists $s->{"min-version"} && &Version::Compare::version_compare($v,$s->{"min-version"}) == -1)
         {
-            emit_warn({-reason => "Too old version"});
             next;
         }
         push(@uv, $v);
-        emit_ok;
     }
 
     for my $v (@uv)
@@ -158,7 +238,7 @@ for my $system (@{$cfg->{"system"}})
                 }
             }
 
-            emit "Verify $system version: $v architecture: $arc";
+            LOG "Verify $system version: $v architecture: $arc";
             my @urls = ();
             if (exists $s->{"download-url"})
             {
@@ -188,6 +268,8 @@ for my $system (@{$cfg->{"system"}})
 
             for my $u (@urls)
             {
+                LOG "Process URL: $u";
+
                 my $fn = $u;
                 $fn =~ s{.*/}{};
 
@@ -198,22 +280,31 @@ for my $system (@{$cfg->{"system"}})
                 my $dest = "$ddir/$fn";
                 $dest =~ s{/+}{/}g;
 
-                emit "Download $u -> $dest";
-                if (-f $dest)
+                my $rl = xlen($u);
+                if ($rl > 0)
                 {
-                    emit_warn({-reason => "already downloaded"});
-                    next;
+                    $rlengths{$u} = $rl;
                 }
 
-                xdownload($u, $dest);
-                emit_ok;
+                if (-f $dest)
+                {
+                    my $ll = -s $dest;
+                    if ($rl > 0 && $rl == $ll) # exists and same length
+                    {
+                        LOG "Skip $u";
+                        next;
+                    }
+                
+                    unlink $dest;
+                }
+
+                LOG "Download $u (".format_bytes($rl).") -> $dest";
+                $todownload{$u} = $dest;
+                xdownload($u, $dest, "$system $v $arc");
             }
 
-            emit_ok;
         }
     }
-
-    emit_ok;
 
     exit
 }
@@ -222,12 +313,6 @@ exit;
 
 # print Dumper $iso;
 
-
-# emit_prog - progress
-# emit_fail {-reason => "dead body"};
-# emit "System parameter updates";
-# emit_error;
-# emit_warn;
 
   # curl -o "$file" -z "$file" "$uri"
 
@@ -244,39 +329,6 @@ print "Count: $count\n";
 #   warn "error from Term::ReadKey::GetTerminalSize(): $@";
 # }
 
-
-my $progress = Term::ProgressBar->new({ count => 200,
-                                        name  => 'thingy',
-                                        ETA   => 'linear',
-                                        term_width => 80,
-                                        });
-
-my $i = 0;
-while ($i < 200)
-{
-    $i += rand(100);
-    $progress->update($i); sleep(1);
-}
-
-
-print xget("https://net.fork.pl");
-#                $curl->setopt(CURLOPT_WRITEFUNCTION, \&writedata_callback);
-
-
-
-# CURLOPT_PROGRESSFUNCTION ( CURLOPT_PROGRESSDATA )
-# Progress callback receives 6 arguments: easy object, dltotal, dlnow, ultotal, ulnow and CURLOPT_PROGRESSDATA value. It should return 0.
-# CURLOPT_XFERINFOFUNCTION ( CURLOPT_XFERINFODATA ) 7.32.0+
-# Works exactly like CURLOPT_PROGRESSFUNCTION callback, except that dltotal, dlnow, ultotal and ulnow are now integer values instead of double.
-
-# sub cb_progress {
-#     my ( $easy, $dltotal, $dlnow, $ultotal, $ulnow, $uservar ) = @_;
-#     # ... display progress ...
-#     return 0;
-# }
-#$easy->setopt( CURLOPT_somethingFUNCTION, \&callback_function );
-
-#####################################################################################################
 
 =pod
 
