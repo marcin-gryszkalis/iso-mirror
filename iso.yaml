@@ -16,20 +16,20 @@ Systems:
 
   Ubuntu:
     versions-url: https://releases.ubuntu.com/
-    versions-rule: 'href="(\d+\.\d+\.\d+)/"'
+    versions-rule: 'href="(\d+\.04\.\d+|\d+\.10)/"'
     download:
       - https://releases.ubuntu.com/{version}/ubuntu-{version}-desktop-{architecture}.iso
       - https://releases.ubuntu.com/{version}/ubuntu-{version}-live-server-{architecture}.iso
 
   Kubuntu:
     versions-url: https://cdimage.ubuntu.com/kubuntu/releases/
-    versions-rule: 'href="(\d+\.\d+\.\d+)/"'
+    versions-rule: 'href="(\d+\.04\.\d+|\d+\.10)/"'
     download:
       - https://cdimage.ubuntu.com/kubuntu/releases/{version}/release/kubuntu-{version}-desktop-{architecture}.iso
 
   Lubuntu:
     versions-url: https://cdimage.ubuntu.com/lubuntu/releases/
-    versions-rule: 'href="(\d+\.\d+\.\d+)/"'
+    versions-rule: 'href="(\d+\.04\.\d+|\d+\.10)/"'
     download:
       - https://cdimage.ubuntu.com/lubuntu/releases/{version}/release/lubuntu-{version}-desktop-{architecture}.iso
 
@@ -84,6 +84,7 @@ Systems:
     # old version is at https://www.hirensbootcd.org/old-versions/
     versions-url: https://www.hirensbootcd.org/download/
     versions-rule: 'BootCD PE x64 \(v([\d\.]+)\)'
+    append-version: Yes
     download:
       - https://www.hirensbootcd.org/files/HBCD_PE_x64.iso
 
