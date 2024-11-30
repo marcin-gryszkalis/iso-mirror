@@ -1,0 +1,14 @@
+requires 'File::Slurp';
+requires 'Data::Dumper';
+requires 'FindBin';
+requires 'JSON';
+requires 'YAML';
+requires 'Config::INI::Reader';
+requires 'Version::Compare';
+requires 'Pod::Usage';
+requires 'Getopt::Long';
+requires 'Net::Curl::Easy';
+requires 'Net::Curl::Form';
+requires 'Term::ProgressBar';
+requires 'Number::Bytes::Human';
+requires 'List::Util';

@@ -22,8 +22,6 @@ use Net::Curl::Form qw(:constants);
 use Term::ProgressBar;
 use Number::Bytes::Human qw(format_bytes);
 use List::Util qw/min max first sum sum0 product all any uniq head tail reduce pairs zip mesh/;
-use List::MoreUtils qw/firstidx frequency mode slide minmax/;
-# use POSIX qw/ceil floor/;
 
 our %options;
 
@@ -353,12 +351,12 @@ for my $system (sort keys %{$cfg->{"system"}})
 
                     LOG "File size changed (old: $ll, new: $rl), redownloading";
 
-                    unlink $dest;
+                    unlink $dest unless $opt_dryrun;
                 }
 
                 LOG "Download $u (".format_bytes($rl).") -> $dest";
                 $todownload{$u} = $dest;
-                xdownload($u, $dest, "$system $v $arc");
+                xdownload($u, $dest, "$system $v $arc") unless $opt_dryrun;
             }
 
         }
@@ -379,11 +377,13 @@ for my $system (sort keys %{$cfg->{"system"}})
             if (-f "$arcdir/$f")
             {
                 LOG "$f already archived, deleting";
+                next if $opt_dryrun;
                 unlink $f or WARN "Error deleting $f: $!";
             }
             else
             {
                 mkdir $arcdir unless -d $arcdir;
+                next if $opt_dryrun;
                 rename("$ddir/$f", "$arcdir/$f") or WARN "Error archiving $f: $!";
             }
         }
@@ -429,7 +429,7 @@ B<iso-mirror> is
 
 =item B<-s --system>=I<name>   - operate only on given system (e.g. ubuntu)
 
-=item B<-n --dryrun>        - check pages and show what would be downloaded, also show what would be deleted when `delete-obsolete` configuration option is enabled
+=item B<-n --dryrun>        - check pages and show what would be downloaded/archived/deleted
 
 =item B<-d --curldebug>     - enable libcurl debug output
 
