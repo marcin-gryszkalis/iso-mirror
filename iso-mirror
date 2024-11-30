@@ -129,12 +129,12 @@ sub xget($url)
     $curl->setopt(CURLOPT_URL, $url);
     $curl->setopt(CURLOPT_WRITEDATA, \$contents);
 
-    eval 
+    eval
     {
         $curl->perform();
     };
 
-    return "" if ref $@ eq "Net::Curl::Easy::Code"; 
+    return "" if ref $@ eq "Net::Curl::Easy::Code";
     return $contents;
 }
 
@@ -149,14 +149,14 @@ sub xlen($url)
     };
 
     $curl->setopt(CURLOPT_NOBODY, 0);
-    return 0 if ref $@ eq "Net::Curl::Easy::Code"; 
+    return 0 if ref $@ eq "Net::Curl::Easy::Code";
     my $len = $curl->getinfo(CURLINFO_CONTENT_LENGTH_DOWNLOAD);
     return $len;
 }
 
 my $progressbar = undef;
 my $progressbarlabel = '';
-sub curl_progress 
+sub curl_progress
 {
     my ($easy, $dltotal, $dlnow, $ultotal, $ulnow, $uservar) = @_;
 
@@ -165,7 +165,7 @@ sub curl_progress
     $progressbar = Term::ProgressBar->new({count => 100, name => $progressbarlabel, ETA => 'linear', term_width => 80 }) unless defined $progressbar;
 
     my $percent = $dltotal > 0 ? int($dlnow * 100 / $dltotal) : 0;
-    $progressbar->update($percent); 
+    $progressbar->update($percent);
 
     return 0;
 }
@@ -195,11 +195,11 @@ sub xdownload($url, $dest, $label)
         WARN "Problem downloading $url: $@ (response code: $rc)";
         close $f;
         unlink $dest;
-    } 
+    }
     else
     {
         ERR $@ if $@;
-    }   
+    }
 
     $curl->setopt(CURLOPT_NOPROGRESS, 1);
     $progressbar = undef;
@@ -220,7 +220,7 @@ $cfg = $cfg->{Options};
 my %rlengths; # url -> content-length
 my %todownload; # url -> dest file
 
-for my $system (@{$cfg->{"system"}})
+for my $system (sort keys %{$cfg->{"system"}})
 {
     next if defined $opt_system && $system ne $opt_system;
 
@@ -229,6 +229,15 @@ for my $system (@{$cfg->{"system"}})
     {
         ERR "cannot find $system in iso.yaml configuration";
     }
+
+    mkdir $cfg->{"destination-dir"} unless -d $cfg->{"destination-dir"};
+    my $ddir = $cfg->{"destination-dir"}.(isyes($cfg->{"dir-per-system"}) ? "/$system/" : "/");
+    $ddir =~ s{/+}{/}g;
+    mkdir $ddir unless -f $ddir;
+    LOG "Destination dir: $ddir";
+
+    # save processed filenames for archiving
+    my %processed = ();
 
     my $s = $iso->{Systems}->{$system};
     my $h = xget($s->{"versions-url"});
@@ -247,8 +256,9 @@ for my $system (@{$cfg->{"system"}})
     my @uv = ();
     for my $v (uniq @vers)
     {
-        LOG "Checking $system version: $v";
-        if(exists $s->{"min-version"} && &Version::Compare::version_compare($v,$s->{"min-version"}) == -1)
+        my $minver = $cfg->{"system"}->{$system} // 0;
+        LOG "Checking $system version: $v (min: $minver)";
+        if (&Version::Compare::version_compare($v, $minver) == -1)
         {
             next;
         }
@@ -273,7 +283,7 @@ for my $system (@{$cfg->{"system"}})
             my @urls = ();
 
             if (exists $s->{"download-url"})
-            {   
+            {
                 my $durl = $s->{"download-url"};
                 $durl =~ s/{version}/$v/g;
                 $durl =~ s/{architecture}/$arc/g;
@@ -281,11 +291,11 @@ for my $system (@{$cfg->{"system"}})
                 my $drule = $s->{"download-rule"};
                 $drule =~ s/{version}/$v/g;
                 $drule =~ s/{architecture}/$arc/g;
-                    
+
                 my $h = xget($durl);
                 my @du = ($h =~ /$drule/g);
                 push(@urls, uniq @du);
-            }   
+            }
 
             if (exists $s->{"download"})
             {
@@ -313,19 +323,17 @@ for my $system (@{$cfg->{"system"}})
                 my $fn = $u;
                 $fn =~ s{.*/}{};
 
-                mkdir $cfg->{"destination-dir"} unless -d $cfg->{"destination-dir"};
-                my $ddir = $cfg->{"destination-dir"}.(isyes($cfg->{"dir-per-system"}) ? "/$system/" : "/");
-                $ddir =~ s{/+}{/}g;
-                mkdir $ddir unless -f $ddir;
-                my $dest = "$ddir/$fn";
-                $dest =~ s{/+}{/}g;
-
                 if (isyes($s->{"append-version"}))
                 {
-                    my $pd = $dest;
-                    $dest =~ s/\.([a-z0-9]+)$/-$v.$1/i;
-                    LOG "Append version: $pd -> $dest";
+                    my $pfn = $fn;
+                    $fn =~ s/\.([a-z0-9]+)$/-$v.$1/i;
+                    LOG "Append version: $pfn -> $fn";
                 }
+
+                $processed{$fn} = 1;
+
+                my $dest = "$ddir/$fn";
+                $dest =~ s{/+}{/}g;
 
                 my $rl = xlen($u);
                 if ($rl > 0)
@@ -342,7 +350,9 @@ for my $system (@{$cfg->{"system"}})
                         LOG "Skip $u";
                         next;
                     }
-                
+
+                    LOG "File size changed (old: $ll, new: $rl), redownloading";
+
                     unlink $dest;
                 }
 
@@ -351,6 +361,31 @@ for my $system (@{$cfg->{"system"}})
                 xdownload($u, $dest, "$system $v $arc");
             }
 
+        }
+    }
+
+    if (isyes($cfg->{"archive-old"}) && isyes($cfg->{"dir-per-system"}))
+    {
+        my $arcdir = $cfg->{"destination-dir"}."/${system}-Archive/";
+
+        for my $f (<$ddir/*>)
+        {
+            next unless -f $f;
+            $f =~ s{.*/}{};
+
+            next if exists $processed{$f};
+
+            LOG "Archive: $ddir/$f -> $arcdir/$f";
+            if (-f "$arcdir/$f")
+            {
+                LOG "$f already archived, deleting";
+                unlink $f or WARN "Error deleting $f: $!";
+            }
+            else
+            {
+                mkdir $arcdir unless -d $arcdir;
+                rename("$ddir/$f", "$arcdir/$f") or WARN "Error archiving $f: $!";
+            }
         }
     }
 
@@ -391,13 +426,14 @@ B<iso-mirror> is
 =over 1
 
 =item B<-c --config>=I<file>   - specify location of `config.yaml` file
+
 =item B<-s --system>=I<name>   - operate only on given system (e.g. ubuntu)
+
 =item B<-n --dryrun>        - check pages and show what would be downloaded, also show what would be deleted when `delete-obsolete` configuration option is enabled
-=item B<-d --curldebug>        - enable libcurl debug output
+
+=item B<-d --curldebug>     - enable libcurl debug output
 
 =back
-
-The integer argument is not checked.
 
 =head1 EXIT STATUS
 
@@ -408,9 +444,33 @@ In case of fatal errors (like syntax error in configuration file) exit code will
 
 Marcin Gryszalis <mg@fork.pl>
 
+=head1 SEE ALSO
+
+https://github.com/marcin-gryszkalis/iso-mirror
+
 =head1 COPYRIGHT AND LICENSE
 
-=head1 SEE ALSO
+MIT License
+
+Copyright (c) 2024 Marcin Gryszkalis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 =cut
 

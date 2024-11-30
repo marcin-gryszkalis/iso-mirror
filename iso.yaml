@@ -9,38 +9,49 @@ Systems:
     versions-rule: 'title="(\d+\.\d+)"'
     download: https://download.freebsd.org/releases/ISO-IMAGES/{version}/FreeBSD-{version}-RELEASE-{architecture}-dvd1.iso
 
-  FreBSD-Archive: # single mirror
-    versions-url: https://archive.freebsd.org/pub/FreeBSD-Archive/old-releases/ISO-IMAGES/
+  FreeBSD-Archive: # single mirror
+    versions-url: https://archive.freebsd.org/old-releases/ISO-IMAGES/
     versions-rule: 'title="(\d+\.\d+)"'
-    download: https://archive.freebsd.org/pub/FreeBSD-Archive/old-releases/ISO-IMAGES/{version}/FreeBSD-{version}-RELEASE-{architecture}-dvd1.iso
-    min-version: 10.0
+    download: https://archive.freebsd.org/old-releases/ISO-IMAGES/{version}/FreeBSD-{version}-RELEASE-{architecture}-dvd1.iso
 
   Ubuntu:
     versions-url: https://releases.ubuntu.com/
-    versions-rule: 'href="([\d\.]+)/"'
-    min-version: 20
+    versions-rule: 'href="(\d+\.\d+\.\d+)/"'
     download:
       - https://releases.ubuntu.com/{version}/ubuntu-{version}-desktop-{architecture}.iso
       - https://releases.ubuntu.com/{version}/ubuntu-{version}-live-server-{architecture}.iso
 
   Kubuntu:
     versions-url: https://cdimage.ubuntu.com/kubuntu/releases/
-    versions-rule: 'href="([\d\.]+)/"'
-    min-version: 20
+    versions-rule: 'href="(\d+\.\d+\.\d+)/"'
     download:
       - https://cdimage.ubuntu.com/kubuntu/releases/{version}/release/kubuntu-{version}-desktop-{architecture}.iso
 
   Lubuntu:
     versions-url: https://cdimage.ubuntu.com/lubuntu/releases/
-    versions-rule: 'href="([\d\.]+)/"'
-    min-version: 20
+    versions-rule: 'href="(\d+\.\d+\.\d+)/"'
     download:
       - https://cdimage.ubuntu.com/lubuntu/releases/{version}/release/lubuntu-{version}-desktop-{architecture}.iso
+
+  Debian:
+    versions-url: https://cdimage.debian.org/debian-cd
+    versions-rule: 'href="([\d\.]+)'
+    download:
+      - https://cdimage.debian.org/debian-cd/{version}/{architecture}/iso-dvd/debian-{version}-{architecture}-DVD-1.iso
+      # other desktops are: xfce, mate, lxde, lxqt
+      - https://cdimage.debian.org/debian-cd/{version}-live/{architecture}/iso-hybrid/debian-live-{version}-{architecture}-cinnamon.iso
+      - https://cdimage.debian.org/debian-cd/{version}-live/{architecture}/iso-hybrid/debian-live-{version}-{architecture}-kde.iso
+
+  Debian-Archive:
+    versions-url: https://cdimage.debian.org/cdimage/archive/
+    versions-rule: 'href="([\d\.]+)/'
+    download:
+      - https://cdimage.debian.org/cdimage/archive/{version}/{architecture}/iso-dvd/debian-{version}-{architecture}-DVD-1.iso
+      - https://cdimage.debian.org/cdimage/archive/{version}-live/{architecture}/iso-hybrid/debian-live-{version}-{architecture}-standard.iso
 
   Alma:
     versions-url: https://mirrors.almalinux.org/isos.html
     versions-rule: 'href="/isos/[^/]+/([\d\.]+)\.html'
-    min-version: 8.0
     mirrors-url: https://mirrors.almalinux.org/
     mirrors-rule: 'href="(https://[^"]+)"\s+target="_blank"'
     architecture-map:
@@ -66,7 +77,6 @@ Systems:
   Rescuezilla:
     versions-url: https://github.com/rescuezilla/rescuezilla/releases
     versions-rule: '/rescuezilla/rescuezilla/releases/tag/([\d\.]+)'
-    min-version: 2.3
     download-url: https://github.com/rescuezilla/rescuezilla/releases
     download-rule: 'https://github.com/rescuezilla/rescuezilla/releases/download/{version}/rescuezilla-{version}-64bit\.[^\.]+\.iso'
 
@@ -74,7 +84,6 @@ Systems:
     # old version is at https://www.hirensbootcd.org/old-versions/
     versions-url: https://www.hirensbootcd.org/download/
     versions-rule: 'BootCD PE x64 \(v([\d\.]+)\)'
-    append-version: Yes
     download:
       - https://www.hirensbootcd.org/files/HBCD_PE_x64.iso
 
@@ -131,17 +140,3 @@ Systems:
 
 #     https://software.download.prss.microsoft.com/dbazure/Win11_23H2_English_x64v2.iso?t=72783b9a-d11f-4d47-9034-31ab94d0b39b&e=1703001502&h=xxx
 
-# https://cdimage.debian.org/debian-cd/current/amd64/iso-dvd/debian-12.4.0-amd64-DVD-1.iso
-# https://cdimage.debian.org/debian-cd/current/amd64/iso-dvd/
-# https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/iso-hybrid/
-# https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/iso-hybrid/debian-live-12.4.0-amd64-standard.iso
-# https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/iso-hybrid/debian-live-12.4.0-amd64-kde.iso
-
-# bit torrent:
-# https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/bt-hybrid/
-# https://cdimage.debian.org/debian-cd/12.4.0-live/amd64/bt-hybrid/debian-live-12.4.0-amd64-standard.iso.torrent
-
-# https://cdimage.debian.org/debian-cd/current/amd64/bt-dvd/
-# https://cdimage.debian.org/debian-cd/current/amd64/bt-dvd/debian-12.4.0-amd64-DVD-1.iso.torrent
-
-# https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-dvd/debian-testing-amd64-DVD-1.iso

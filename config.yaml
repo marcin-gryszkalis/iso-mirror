@@ -1,18 +1,26 @@
 Options:
 
-  # TODO: not implemented
-  delete-obsolete: No
-
   # do not download+overwrite if the local file already exists
   re-download: No
 
   # folder where downloaded files are saved
   # destination-dir: /mnt/iso
-  destination-dir: /mnt/0/iso
+  # destination-dir: /mnt/0/iso
+  destination-dir: /run/media/mg/Ventoy/iso
 
   # create subdirectory in `destination-dir` for every system entry and save its files there
   # see `system` section below
   dir-per-system: Yes
+
+  # move old versions to directory with -Archive suffix (only when dir-per-system is active)
+  archive-old: Yes
+
+  # mirrors domain, try in order provided
+  mirror-domain:
+    - pl
+    - de
+    - net
+    - com
 
   tools:
     http-get: curl -o - --silent {url}
@@ -52,20 +60,23 @@ Options:
     - amd64
 
   # which ISOs you need?
+  # you can specify minimum version to download (i.e. skip older)
   system:
-    - FreeBSD
-    - FreBSD-Archive
-    - Ubuntu
-    - Kubuntu
-    - Lubuntu
-    - Alma
-    - Arch
-    - Clonezilla
-    - Rescuezilla
-    - Hirens
-    - System-Rescue
-    - ShredOS
-    - TrueNAS-Core
-    - TrueNAS-Scale
-    - Kali
+    FreeBSD:
+    FreeBSD-Archive: 12.0
+    Debian:
+    Debian-Archive: 11.11.0
+    Ubuntu: 20
+    Kubuntu: 20
+    Lubuntu: 20
+    Alma: 8.0
+    Arch:
+    Clonezilla:
+    Rescuezilla: 2.3
+    Hirens:
+    System-Rescue:
+    ShredOS:
+    TrueNAS-Core:
+    TrueNAS-Scale:
+    Kali:
 
